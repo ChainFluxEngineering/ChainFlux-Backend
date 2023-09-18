@@ -28,6 +28,7 @@ def upload_pdf():
         # Get the uploaded file from the request
         pdf_file = request.files['pdf']
         s3_folder = request.form['folder']
+        user_id = request.form['user_id']
        
         
         # print(text)
@@ -59,7 +60,7 @@ def upload_pdf():
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function = len)
         docs = text_splitter.split_text(text)
-        print(docs[0])
+        
         # Create embeddings from the chunks
         # embeddings = OpenAIEmbeddings(model_name="ada")
         # for chunks in docs:
@@ -70,17 +71,31 @@ def upload_pdf():
 
         # # Store the embeddings to Pinecone
         pinecone.init( 
-            api_key='8bab7279-234b-4504-914a-a6b4305b6ac1',
-            environment='gcp-starter'
+            api_key='aa654506-71ba-4d19-a1b8-56dc329b7090',
+            environment='us-east-1-aws'
         )
-        index_name = 'janakk'
-        index = index = pinecone.Index(index_name)
+        index_name = user_id
+        index_exists = False
+
+        indexes = pinecone.list_indexes()
+      
+        if index_name in indexes:
+            index_exists = True
+
+
+        if not index_exists:
+        # Create the index if it doesn't exist
+         pinecone.create_index(index_name, dimension=1536, metric='cosine')
+        
+
+        index = pinecone.Index(index_name)
+    
         embeddings = OpenAIEmbeddings(model_name="ada")
         index = Pinecone.from_texts(docs, embeddings, index_name=index_name)
         
     
 
-        response_data = {'message': 'File uploaded and processed successfully', 'embedding_length': len(docs)}
+        response_data = {'message': f'Index {index_name} created and documents uploaded successfully', 'embedding_length': len(docs)}
 
         return jsonify(response_data), 200
     except Exception as e:
@@ -93,29 +108,41 @@ def query():
         
         
         query = request.form['query']
-        print(query)
+        user_id = request.form['user_id']
+       
         
        
-        # query ="Tell about Video games"
+       
 
 
         text = "Hello this is test insert"
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function = len)
         docs = text_splitter.split_text(text)
-     
+        
 
    
         pinecone.init( 
-            api_key='8bab7279-234b-4504-914a-a6b4305b6ac1',
-            environment='gcp-starter'
+            api_key='aa654506-71ba-4d19-a1b8-56dc329b7090',
+            environment='us-east-1-aws'
         )
-        index_name = 'janakk'
+        index_name = user_id
+        index_exists = False
+        print("ok1")
+        indexes = pinecone.list_indexes()
+         
+        if index_name in indexes:
+            index_exists = True
+
+        if not index_exists:
+         return jsonify({'error': f'Index {index_name} does not exist.'}), 404
+        print("ok")
         embeddings = OpenAIEmbeddings(model_name="ada")
         embedding = embeddings.embed_query(docs[0])
+        index = pinecone.Index(index_name)
         index = Pinecone.from_texts(docs, embeddings, index_name=index_name)
         
         print(index)
-        k=2 
+        k=3 
         score = False
         if score:
           similar_docs = index.similarity_search_with_score(query,k=k)
@@ -132,8 +159,7 @@ def query():
         chain = load_qa_chain(llm, chain_type="stuff")
 
         answer =  chain.run(input_documents=similar_docs, question=query)
-        print(answer)
-
+        
         
 
         response_data = {'message': 'query successfully', 'answer': answer}

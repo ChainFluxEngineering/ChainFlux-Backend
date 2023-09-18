@@ -105,16 +105,9 @@ def upload_pdf():
 @app.route('/query', methods=['POST'])
 def query():
     try:
-        
-        
         query = request.form['query']
         user_id = request.form['user_id']
        
-        
-       
-       
-
-
         text = "Hello this is test insert"
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function = len)
         docs = text_splitter.split_text(text)
@@ -129,12 +122,16 @@ def query():
         index_exists = False
         print("ok1")
         indexes = pinecone.list_indexes()
-         
+
+        
         if index_name in indexes:
             index_exists = True
+        
+        
 
         if not index_exists:
-         return jsonify({'error': f'Index {index_name} does not exist.'}), 404
+         response_data = {'message': 'query unsuccessfully', 'answer': "Please upload a File!"}
+         return jsonify(response_data), 200
         print("ok")
         embeddings = OpenAIEmbeddings(model_name="ada")
         embedding = embeddings.embed_query(docs[0])

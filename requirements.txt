@@ -1,0 +1,11 @@
+boto3
+Flask
+Flask-Cors
+pinecone-client
+Django
+langchain==0.0.285
+openai
+fpdf
+tiktoken
+pinecone-client
+PyPDF2

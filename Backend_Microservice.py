@@ -239,7 +239,7 @@ def query():
         index_full = Pinecone.from_texts(
             docs, embeddings, index_name=index_name_full)
 
-        k = 5
+        k = 3
         # Define the desired pdf_id you want to filter by
         desired_pdf_id = "pdf_6"
 

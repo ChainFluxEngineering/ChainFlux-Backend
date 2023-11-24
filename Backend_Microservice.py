@@ -117,11 +117,11 @@ def create_embedding():
 
         # # Store the embeddings to Pinecone
         pinecone.init(
-            api_key='0d24960b-c417-4140-a3b5-8d4600d2c4d0',
+            api_key='ba7c38c0-27bb-4559-aa3e-627f57096990',
             environment='eu-west4-gcp'
         )
         # index_name = "summary"
-        index_name_full = "full"
+        index_name = user_id
         # index_exists = False
 
         index_exists_full = False
@@ -131,7 +131,7 @@ def create_embedding():
         # if index_name in indexes:
         #     index_exists = True
 
-        if index_name_full in indexes:
+        if index_name in indexes:
             index_exists_full = True
 
         # if not index_exists:
@@ -141,11 +141,11 @@ def create_embedding():
         if not index_exists_full:
             # Create the index if it doesn't exist
             pinecone.create_index(
-                index_name_full, dimension=1536, metric='cosine')
+                index_name, dimension=1536, metric='cosine')
 
         # index = pinecone.Index(index_name)
 
-        index_full = pinecone.Index(index_name_full)
+        index_full = pinecone.Index(index_name)
 
         embeddings = OpenAIEmbeddings(model_name="ada")
 
@@ -191,7 +191,7 @@ def create_embedding():
         print(pdf_id)
 
         response_data = {
-            'message': f'Index: {index_name_full} created and embeddings stored succesfully.'}
+            'message': f'Index: {index_name} created and embeddings stored succesfully.'}
         return jsonify(response_data), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -209,11 +209,11 @@ def query():
         docs = text_splitter.split_text(text)
 
         pinecone.init(
-            api_key='0d24960b-c417-4140-a3b5-8d4600d2c4d0',
+            api_key='ba7c38c0-27bb-4559-aa3e-627f57096990',
             environment='eu-west4-gcp'
         )
         # index_name = 'summary'
-        index_name_full = 'full'
+        index_name_full = user_id
         # index_exists = False
         index_exists_full = False
 
@@ -241,7 +241,7 @@ def query():
 
         k = 3
         # Define the desired pdf_id you want to filter by
-        desired_pdf_id = "pdf_6"
+        # desired_pdf_id = "pdf_6"
 
         # filter_condition = f"metadata.pdf_id:{desired_pdf_id}"
 
@@ -265,19 +265,19 @@ def query():
         
         # print(pdf_ids)
 
-        filter1 = {
-             "user_id": {"$eq": user_id}
-        }
+        # filter1 = {
+        #      "user_id": {"$eq": user_id}
+        # }
 
         # print(filter1)
 
         score = False
         if score:
             similar_docs_full = index_full.similarity_search_with_score(
-                query, k=k, filter=filter1)
+                query, k=k)
         else:
             similar_docs_full = index_full.similarity_search(
-                query, k=k, filter=filter1)
+                query, k=k)
 
       
 
@@ -313,11 +313,11 @@ def delete_user():
         
 
         pinecone.init(
-            api_key='0d24960b-c417-4140-a3b5-8d4600d2c4d0',
+            api_key='ba7c38c0-27bb-4559-aa3e-627f57096990',
             environment='eu-west4-gcp'
         )
         # index_name = 'summary'
-        index_name_full = 'full'
+        index_name_full = user_id
         index_exists = False
         index_exists_full = False
 
@@ -349,11 +349,11 @@ def delete_user():
 
        
 
-        filter1 = {
-             "user_id": {"$eq": user_id}
-        }
+        # filter1 = {
+        #      "user_id": {"$eq": user_id}
+        # }
 
-        print(filter1)
+        # print(filter1)
 
        
 #         index.delete(
@@ -361,9 +361,9 @@ def delete_user():
         
     
 # )       
-        index_full.delete(
-            filter = filter1
-        )
+        # index_full.delete(
+        #     filter = filter1
+        # )
       
 
         # metadata_list_full = []
@@ -375,6 +375,7 @@ def delete_user():
         # print(metadata_list_full)
 
         # model_name = "text-davinci-003"
+        pinecone.delete_index(index_name_full)
         
 
         response_data = {'message': 'query successfully', 'answer': f'User {user_id} Deleted Succesfully'}
@@ -410,4 +411,4 @@ def list_file():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000)
+    app.run(host='0.0.0.0', port=5000)

@@ -7,6 +7,7 @@ import os
 import openai
 from PyPDF2 import PdfReader
 import numpy as np
+from docx import Document
 from langchain.llms import OpenAI
 from langchain.document_loaders import PyPDFLoader
 from langchain.chains.summarize import load_summarize_chain
@@ -29,6 +30,25 @@ CORS(app)
 s3_client = boto3.client('s3')
 s3_bucket = 'janak-mvp'
 llm = ChatOpenAI(temperature=0)
+
+def read_text_file(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def read_word_file(file_path):
+    doc = Document(file_path)
+    text = ''
+    for paragraph in doc.paragraphs:
+        text += paragraph.text + '\n'
+    return text
+
+def read_pdf_file(file_path):
+    textfull = ""
+    pdf_reader = PdfReader(file_path)
+    for page in pdf_reader.pages:
+        textfull += 'New Page\n' + page.extract_text()
+    return textfull
+
 
 
 @app.route('/upload-pdf', methods=['POST'])
@@ -77,14 +97,26 @@ def create_embedding():
         user_id = request.form['user_id']
         current_time = datetime.now()
         pdf_id = current_time.strftime('%Y-%m-%d_%H-%M-%S')
-
+        print(pdf_file)
         textfull = ""
-        pdf_reader = PdfReader(pdf_file)
-        for page in pdf_reader.pages:
-            textfull += 'New Page\n'+page.extract_text()
 
-        text = ""
-        pdf_reader = PdfReader(pdf_file)
+        # Determine the file type based on the extension
+        _, extension = os.path.splitext(pdf_file.filename)
+
+        if extension.lower() == '.pdf':
+            # PDF file
+            pdf_reader = PdfReader(pdf_file)
+            for page in pdf_reader.pages:
+                textfull += 'New Page\n' + page.extract_text()
+        elif extension.lower() == '.docx':
+            # Word document (docx)
+            doc = Document(pdf_file)
+            for paragraph in doc.paragraphs:
+                textfull += paragraph.text + '\n'
+        elif extension.lower() == '.txt':
+            # Text file (txt)
+            textfull = pdf_file.read().decode('utf-8')
+
 
         # prompt_template = """Write a summary of the following keeping the context and important details intact:
 

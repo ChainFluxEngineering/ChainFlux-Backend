@@ -7,6 +7,7 @@ import os
 import openai
 from PyPDF2 import PdfReader
 import numpy as np
+from docx import Document
 from langchain.llms import OpenAI
 from langchain.document_loaders import PyPDFLoader
 from langchain.chains.summarize import load_summarize_chain
@@ -21,6 +22,13 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import TextLoader
 from datetime import datetime
+from flask_pymongo import PyMongo
+from langchain.prompts import ChatPromptTemplate
+from langchain_community.chat_models import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
+import pymongo
+from flask import jsonify
+import json
 
 
 os.environ["OPENAI_API_KEY"] = "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"
@@ -29,6 +37,35 @@ CORS(app)
 s3_client = boto3.client('s3')
 s3_bucket = 'janak-mvp'
 llm = ChatOpenAI(temperature=0)
+
+
+client = pymongo.MongoClient(
+    "mongodb+srv://vyomgoyal2003:vyom2003@janak-ai.qvnw4fy.mongodb.net/?retryWrites=true&w=majority")
+db = client.test
+
+
+# Access the database
+
+
+def read_text_file(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+
+def read_word_file(file_path):
+    doc = Document(file_path)
+    text = ''
+    for paragraph in doc.paragraphs:
+        text += paragraph.text + '\n'
+    return text
+
+
+def read_pdf_file(file_path):
+    textfull = ""
+    pdf_reader = PdfReader(file_path)
+    for page in pdf_reader.pages:
+        textfull += 'New Page\n' + page.extract_text()
+    return textfull
 
 
 @app.route('/upload-pdf', methods=['POST'])
@@ -42,7 +79,6 @@ def upload_pdf():
 
         current_time = datetime.now()
         pdf_id = current_time.strftime('%Y-%m-%d_%H-%M-%S')
-        
 
         # print(text)
 
@@ -62,13 +98,12 @@ def upload_pdf():
         s3_client.upload_file(temp_pdf_file.name, s3_bucket,
                               os.path.join(s3_folder, s3_file))
 
-        
-
         response_data = {
             'message': f'Document uploaded successfully to s3folder: {s3_folder}'}
         return jsonify(response_data), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/create-embedding', methods=['POST'])
 def create_embedding():
@@ -77,17 +112,27 @@ def create_embedding():
         user_id = request.form['user_id']
         current_time = datetime.now()
         pdf_id = current_time.strftime('%Y-%m-%d_%H-%M-%S')
-
+        print(pdf_file)
         textfull = ""
-        pdf_reader = PdfReader(pdf_file)
-        for page in pdf_reader.pages:
-            textfull += 'New Page\n'+page.extract_text()
 
-        text = ""
-        pdf_reader = PdfReader(pdf_file)
+        # Determine the file type based on the extension
+        _, extension = os.path.splitext(pdf_file.filename)
+
+        if extension.lower() == '.pdf':
+            # PDF file
+            pdf_reader = PdfReader(pdf_file)
+            for page in pdf_reader.pages:
+                textfull += 'New Page\n' + page.extract_text()
+        elif extension.lower() == '.docx':
+            # Word document (docx)
+            doc = Document(pdf_file)
+            for paragraph in doc.paragraphs:
+                textfull += paragraph.text + '\n'
+        elif extension.lower() == '.txt':
+            # Text file (txt)
+            textfull = pdf_file.read().decode('utf-8')
 
         # prompt_template = """Write a summary of the following keeping the context and important details intact:
-
 
         # {text}"""
         # summary = []
@@ -262,7 +307,7 @@ def query():
         # print(metadata_list)
 
         # pdf_ids = [item['pdf_id'] for item in metadata_list if item]
-        
+
         # print(pdf_ids)
 
         # filter1 = {
@@ -278,8 +323,6 @@ def query():
         else:
             similar_docs_full = index_full.similarity_search(
                 query, k=k)
-
-      
 
         # metadata_list_full = []
 
@@ -304,13 +347,12 @@ def query():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/delete', methods=['POST'])
 def delete_user():
     try:
-        
-        user_id = request.form['user_id']
 
-        
+        user_id = request.form['user_id']
 
         pinecone.init(
             api_key='ba7c38c0-27bb-4559-aa3e-627f57096990',
@@ -329,25 +371,11 @@ def delete_user():
         if index_name_full in indexes:
             index_exists_full = True
 
-       
-
-        
         # index = pinecone.Index(index_name)
-        
 
         index_full = pinecone.Index(index_name_full)
-        
-
-       
-       
 
         # filter_condition = f"metadata.pdf_id:{desired_pdf_id}"
-
-        
-
-        
-
-       
 
         # filter1 = {
         #      "user_id": {"$eq": user_id}
@@ -355,16 +383,15 @@ def delete_user():
 
         # print(filter1)
 
-       
+
 #         index.delete(
 #     filter= filter1
-        
-    
-# )       
+
+
+# )
         # index_full.delete(
         #     filter = filter1
         # )
-      
 
         # metadata_list_full = []
 
@@ -376,24 +403,23 @@ def delete_user():
 
         # model_name = "text-davinci-003"
         pinecone.delete_index(index_name_full)
-        
 
-        response_data = {'message': 'query successfully', 'answer': f'User {user_id} Deleted Succesfully'}
+        response_data = {'message': 'query successfully',
+                         'answer': f'User {user_id} Deleted Succesfully'}
 
         return jsonify(response_data), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
+
 
 @app.route('/listfile', methods=['POST'])
 def list_file():
     try:
-        
-        
+
         s3_folder = request.form['folder']
 
-        response = s3_client.list_objects_v2(Bucket=s3_bucket, Prefix=s3_folder)
-        
+        response = s3_client.list_objects_v2(
+            Bucket=s3_bucket, Prefix=s3_folder)
 
         object_keys = [obj['Key'] for obj in response.get('Contents', [])]
 
@@ -409,6 +435,83 @@ def list_file():
         return jsonify(response_data), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/get-names', methods=['POST'])
+def get_names():
+    try:
+        # Access the 'agree_metadata' collection
+        collection = db.agree_metadata  # Use your collection name
+
+        # Retrieve all documents from the collection
+        names = collection.find({}, {'name': 1})
+
+        # Convert the cursor to a list of names
+        name_list = [doc['name'] for doc in names]
+
+        # response_data = {'message': 'Query successful', 'names': name_list}
+
+        user_query = request.form['user_query']
+
+        # Use OpenAI to generate a response based on the user's query
+        prompt = f"Find the most relevant agreement type for the following query: {user_query} from the list of agreements {name_list}. Give the name exactly as in array and give the answer in one word."
+        print(prompt)
+        openai.api_key = "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"
+        completion = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        type_agreement = completion['choices'][0]['message']['content']
+
+
+
+        selected_agreement = collection.find_one({'name': type_agreement})
+
+        if not selected_agreement:
+            return jsonify({'error': f'Agreement type "{type_agreement}" not found'}), 404
+
+        # Extract data associated with the selected agreement type
+        data = selected_agreement.get('data', {})
+
+        # Convert data to a string
+        data = json.loads(data)
+        sorted_data = sorted(data.items(), key=lambda x: [int(num) for num in x[0].split('.')])
+
+        # Create a prompt using the data of the selected agreement type
+        generated_agreement = ""
+        for clause_number, clause_data in sorted_data:
+            # Extract key phrases and purpose for the current clause
+            print(clause_number, "\n")
+            key_phrases = clause_data.get('key_phrases', [])
+            purpose = clause_data.get('purpose', '')
+
+            # Construct a prompt for the current clause
+            prompt = f"Generate the agreement clause for the following key phrases: {', '.join(key_phrases)}. Purpose: {purpose}"
+
+            # Use OpenAI to generate the clause for the current key phrases
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            generated_clause = completion['choices'][0]['message']['content']
+
+            # Combine the generated clause with the overall agreement
+            generated_agreement += f"\n\nClause {clause_number}\n{generated_clause}\n"
+        print(generated_agreement)
+        response_data = {'message': 'Query successful',
+                         'generated_agreement': generated_agreement}
+
+        return jsonify(response_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

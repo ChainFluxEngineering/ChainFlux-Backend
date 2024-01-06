@@ -490,7 +490,7 @@ def get_names():
             purpose = clause_data.get('purpose', '')
 
             # Construct a prompt for the current clause
-            prompt = f"Generate the agreement clause for the following key phrases: {', '.join(key_phrases)}. Purpose: {purpose}"
+            prompt = f"Generate the agreement clause for the following key phrases: {', '.join(key_phrases)}. Purpose: {purpose} use the following user query to modify the prompt accordingly {user_query}"
 
             # Use OpenAI to generate the clause for the current key phrases
             completion = openai.ChatCompletion.create(
